@@ -7,7 +7,7 @@
     body {
         font-family: Arial, sans-serif;
         background: #0f0f0f;
-        color: #0026ff;
+        color: #fff;
         margin: 0;
         padding: 0;
     }
@@ -99,12 +99,16 @@
     body.video-playing {
         overflow: hidden;
     }
+
+    h1#logo {
+        cursor: pointer;
+    }
 </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <h1>prism &lt;3</h1>
+    <h1 id="logo">prism &lt;3</h1>
     <div class="search-box">
         <input id="query" placeholder="Search movie or TV show..." />
         <button onclick="search()">Search</button>
@@ -117,6 +121,15 @@
 <script>
 const API_KEY = "65277ee3";
 const TMDB_API_KEY = "a7856adff8aa06bd9d9fa0b21d0ea593";
+
+// Click logo to return to main / remove video
+document.getElementById("logo").addEventListener("click", () => {
+    const videoContainer = document.getElementById("video-container");
+    videoContainer.style.display = "none";
+    videoContainer.innerHTML = "";
+    document.body.classList.remove("video-playing");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
 async function search() {
     const q = document.getElementById("query").value.trim();
@@ -180,7 +193,7 @@ async function search() {
     });
 }
 
-// Optional: click outside video to close
+// Click outside video to close
 document.getElementById("video-container").addEventListener("click", () => {
     const videoContainer = document.getElementById("video-container");
     videoContainer.style.display = "none";
