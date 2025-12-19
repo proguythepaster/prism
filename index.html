@@ -3,248 +3,365 @@
 <head>
 <meta charset="UTF-8">
 <title>prism</title>
-
 <style>
+:root {
+    --bg: #0b0d10;
+    --panel: #14161c;
+    --panel-soft: #1b1e26;
+    --accent: #f5c518;
+    --text: #ffffff;
+    --muted: #9aa0aa;
+}
+
+* { box-sizing: border-box; }
+
 body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, #0b0d10 0%, #050608 100%);
+    color: var(--text);
     margin: 0;
-    background: #0f0f0f;
-    color: white;
-    font-family: Arial, sans-serif;
 }
 
+/* ===== TOP BAR ===== */
 .top-bar {
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
-    height: 70px;
-    background: #0f0f0f;
+    z-index: 100;
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
-    z-index: 10;
+    align-items: center;
+    padding: 16px 28px;
+    background: rgba(11,13,16,0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.top-bar h1 {
+h1 {
     margin: 0;
+    font-size: 26px;
+    font-weight: 800;
     cursor: pointer;
+    letter-spacing: 0.3px;
 }
 
 .search-box {
     display: flex;
+    background: var(--panel);
+    border-radius: 999px;
+    overflow: hidden;
 }
 
 input {
-    padding: 10px;
-    width: 300px;
+    width: 260px;
+    padding: 10px 14px;
+    background: transparent;
+    color: var(--text);
     border: none;
+    outline: none;
 }
 
 button {
-    background: #f5c518;
-    border: none;
-    padding: 10px;
-    font-weight: bold;
+    padding: 10px 16px;
+    font-weight: 700;
     cursor: pointer;
+    border: none;
+    background: var(--accent);
+    color: #000;
 }
 
+/* ===== RESULTS GRID ===== */
 .results {
-    padding-top: 90px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 15px;
-    padding-left: 20px;
-    padding-right: 20px;
+    gap: 18px;
+    padding: 28px;
 }
 
 .card {
-    background: #1a1a1a;
-    padding: 10px;
-    border-radius: 6px;
+    background: linear-gradient(180deg, var(--panel-soft), var(--panel));
+    border-radius: 14px;
+    padding: 12px;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
 .card img {
     width: 100%;
-    border-radius: 4px;
+    border-radius: 10px;
+    aspect-ratio: 2/3;
+    object-fit: cover;
 }
 
-.card button {
+.card h3 {
+    font-size: 15px;
+    margin: 10px 0 6px;
+    line-height: 1.3;
+}
+
+.play-button {
     width: 100%;
-    margin-top: 5px;
+    margin-top: 6px;
+    border-radius: 999px;
 }
 
-.continue {
-    background: #2ecc71;
-}
-
-/* Video player */
+/* ===== VIDEO / EPISODES VIEW ===== */
 #video-container {
     position: fixed;
-    top: 70px;
+    top: 76px;
     left: 0;
     right: 0;
     bottom: 0;
-    background: black;
+    background: linear-gradient(180deg, #07080b, #000);
     display: none;
-    z-index: 5;
-    padding: 15px;
+    z-index: 50;
+    padding: 28px;
     overflow-y: auto;
+}
+
+#video-container h2 {
+    margin-top: 0;
+    font-size: 26px;
 }
 
 #video-container iframe {
     width: 100%;
-    height: 80vh;
-    border: none;
+    height: 70vh;
+    border-radius: 14px;
+    margin-bottom: 24px;
+}
+
+#video-container button {
+    background: var(--panel-soft);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 8px 14px;
+    margin: 6px 6px 0 0;
+}
+
+#video-container button:hover {
+    background: var(--accent);
+    color: #000;
+}
+
+body.video-playing {
+    overflow: hidden;
+}
+
+/* ===== CONTINUE WATCHING ===== */
+#continue-row {
+    display: none;
+    padding: 20px 28px;
+}
+
+#continue-card .card {
+    max-width: 300px;
 }
 </style>
 </head>
-
 <body>
 
 <div class="top-bar">
-    <h1 id="home">prism &lt;3</h1>
+    <h1 id="logo">prism &lt;3</h1>
     <div class="search-box">
-        <input id="query" placeholder="Search movies or TV..." />
+        <input id="query" placeholder="Search movie or TV show..." />
         <button onclick="search()">Search</button>
     </div>
+</div>
+
+<div id="continue-row">
+    <h2>Continue Watching</h2>
+    <div id="continue-card"></div>
 </div>
 
 <div id="video-container"></div>
 <div class="results" id="results"></div>
 
 <script>
-const OMDB_KEY = "65277ee3";
-const TMDB_KEY = "a7856adff8aa06bd9d9fa0b21d0ea593";
+const API_KEY = "65277ee3";
+const TMDB_API_KEY = "a7856adff8aa06bd9d9fa0b21d0ea593";
 
-/* ---------------- COOKIES ---------------- */
-function setCookie(name, value, days = 365) {
+/* ===== COOKIE HELPERS ===== */
+function setCookie(name, value, days = 30) {
     const d = new Date();
     d.setTime(d.getTime() + (days*24*60*60*1000));
-    document.cookie = name + "=" + encodeURIComponent(JSON.stringify(value)) + ";expires=" + d.toUTCString() + ";path=/";
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
 }
-
 function getCookie(name) {
-    const cookies = document.cookie.split("; ");
-    for (let c of cookies) {
-        const [k, v] = c.split("=");
-        if (k === name) return JSON.parse(decodeURIComponent(v));
-    }
-    return null;
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+}
+function deleteCookie(name) {
+    document.cookie = `${name}=; Max-Age=0; path=/`;
 }
 
-/* ---------------- UI ---------------- */
-document.getElementById("home").onclick = () => {
-    const vc = document.getElementById("video-container");
-    vc.style.display = "none";
-    vc.innerHTML = "";
-};
+/* ===== CONTINUE WATCHING ===== */
+function loadContinueWatching() {
+    const data = getCookie("continueWatching");
+    if (!data) return;
 
-/* ---------------- SEARCH ---------------- */
+    const episode = JSON.parse(data);
+    const row = document.getElementById("continue-row");
+    const card = document.getElementById("continue-card");
+
+    card.innerHTML = `
+        <div class="card">
+            <h3>Season ${episode.season} · Episode ${episode.episode}</h3>
+            <p>${episode.title}</p>
+            <button class="play-button">Continue</button>
+        </div>
+    `;
+
+    card.querySelector("button").addEventListener("click", () => {
+        playVideo(`https://vidlink.pro/tv/${episode.tvId}/${episode.season}/${episode.episode}`);
+        history.pushState({ type: "player" }, "");
+    });
+
+    row.style.display = "block";
+}
+
+/* ===== LOGO CLICK RESET ===== */
+document.getElementById("logo").addEventListener("click", () => {
+    document.getElementById("query").value = "";
+    document.getElementById("results").innerHTML = "";
+
+    const videoContainer = document.getElementById("video-container");
+    videoContainer.style.display = "none";
+    videoContainer.innerHTML = "";
+
+    document.body.classList.remove("video-playing");
+    history.pushState({}, "");
+});
+
+/* ===== HISTORY / BACK BUTTON ===== */
+window.addEventListener("popstate", () => {
+    const videoContainer = document.getElementById("video-container");
+    videoContainer.style.display = "none";
+    videoContainer.innerHTML = "";
+    document.body.classList.remove("video-playing");
+});
+
+/* ===== SEARCH ===== */
 async function search() {
     const q = document.getElementById("query").value.trim();
     if (!q) return;
 
-    const res = await fetch(`https://www.omdbapi.com/?apikey=${OMDB_KEY}&s=${encodeURIComponent(q)}`);
+    const res = await fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(q)}`);
     const data = await res.json();
 
-    const results = document.getElementById("results");
-    results.innerHTML = "";
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "";
 
     if (data.Response === "False") {
-        results.innerHTML = "<p>No results found</p>";
+        resultsDiv.innerHTML = "<p style='padding:20px'>No results found.</p>";
         return;
     }
-
-    const progress = getCookie("tv_progress");
 
     data.Search.forEach(item => {
         const card = document.createElement("div");
         card.className = "card";
 
-        let continueBtn = "";
-        if (item.Type === "series" && progress && progress.title === item.Title) {
-            continueBtn = `<button class="continue">Continue S${progress.season}E${progress.episode}</button>`;
-        }
-
         card.innerHTML = `
             <img src="${item.Poster !== "N/A" ? item.Poster : ""}">
-            <h3>${item.Title}</h3>
-            <button class="play">Play</button>
-            ${continueBtn}
+            <h3>${item.Title} (${item.Type})</h3>
+            <button class="play-button">Play</button>
         `;
 
-        card.querySelector(".play").onclick = () => handlePlay(item);
+        card.querySelector(".play-button").addEventListener("click", async () => {
+            if (item.Type === "movie") {
+                const tmdbRes = await fetch(
+                    `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.Title)}`
+                );
+                const tmdbData = await tmdbRes.json();
+                if (tmdbData.results?.length) {
+                    playVideo(`https://vidlink.pro/movie/${tmdbData.results[0].id}`);
+                }
+            } else {
+                const tmdbRes = await fetch(
+                    `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.Title)}`
+                );
+                const tmdbData = await tmdbRes.json();
+                if (tmdbData.results?.length) {
+                    const tvId = tmdbData.results[0].id;
+                    const detailsRes = await fetch(
+                        `https://api.themoviedb.org/3/tv/${tvId}?api_key=${TMDB_API_KEY}`
+                    );
+                    const details = await detailsRes.json();
+                    showSeasons(tvId, details.seasons);
+                }
+            }
+        });
 
-        if (continueBtn) {
-            card.querySelector(".continue").onclick = () => {
-                playVideo(`https://vidlink.pro/tv/${progress.tvId}/${progress.season}/${progress.episode}`);
-            };
-        }
-
-        results.appendChild(card);
+        resultsDiv.appendChild(card);
     });
 }
 
-/* ---------------- PLAY ---------------- */
-async function handlePlay(item) {
-    if (item.Type === "movie") {
-        const r = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${item.Title}`);
-        const d = await r.json();
-        if (d.results[0]) playVideo(`https://vidlink.pro/movie/${d.results[0].id}`);
-        return;
-    }
-
-    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${item.Title}`);
-    const d = await r.json();
-    if (!d.results[0]) return;
-
-    const tvId = d.results[0].id;
-    const info = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${TMDB_KEY}`);
-    const show = await info.json();
-
-    const vc = document.getElementById("video-container");
-    vc.innerHTML = "<h2>Select Season</h2>";
-
-    show.seasons.forEach(s => {
-        if (s.season_number === 0) return;
-        const b = document.createElement("button");
-        b.textContent = `Season ${s.season_number}`;
-        b.onclick = () => showEpisodes(tvId, item.Title, s.season_number);
-        vc.appendChild(b);
-    });
-
-    vc.style.display = "block";
-}
-
-async function showEpisodes(tvId, title, season) {
-    const r = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${season}?api_key=${TMDB_KEY}`);
-    const d = await r.json();
-
-    const vc = document.getElementById("video-container");
-    vc.innerHTML = `<h2>Season ${season}</h2>`;
-
-    d.episodes.forEach(ep => {
-        const b = document.createElement("button");
-        b.textContent = `Episode ${ep.episode_number}: ${ep.name}`;
-        b.onclick = () => {
-            setCookie("tv_progress", {
-                tvId,
-                title,
-                season,
-                episode: ep.episode_number
-            });
-            playVideo(`https://vidlink.pro/tv/${tvId}/${season}/${ep.episode_number}`);
-        };
-        vc.appendChild(b);
-    });
-}
-
+/* ===== VIDEO PLAYBACK ===== */
 function playVideo(url) {
     const vc = document.getElementById("video-container");
     vc.innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
     vc.style.display = "block";
+    document.body.classList.add("video-playing");
+    history.pushState({ type: "player" }, "");
 }
+
+/* ===== SEASONS & EPISODES ===== */
+function showSeasons(tvId, seasons) {
+    const vc = document.getElementById("video-container");
+    vc.innerHTML = "<h2>Select Season</h2>";
+
+    seasons.forEach(s => {
+        if (s.season_number === 0) return;
+        const btn = document.createElement("button");
+        btn.textContent = `Season ${s.season_number}`;
+        btn.onclick = () => showEpisodes(tvId, s.season_number);
+        vc.appendChild(btn);
+    });
+
+    vc.style.display = "block";
+    document.body.classList.add("video-playing");
+    history.pushState({ type: "view" }, "");
+}
+
+async function showEpisodes(tvId, seasonNumber) {
+    const res = await fetch(
+        `https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${TMDB_API_KEY}`
+    );
+    const data = await res.json();
+
+    const vc = document.getElementById("video-container");
+    vc.innerHTML = `<h2>Season ${seasonNumber}</h2>`;
+
+    data.episodes.forEach(ep => {
+        const btn = document.createElement("button");
+        btn.textContent = `Episode ${ep.episode_number}: ${ep.name}`;
+
+        btn.addEventListener("click", () => {
+            // Save progress
+            setCookie("continueWatching", JSON.stringify({
+                tvId,
+                season: seasonNumber,
+                episode: ep.episode_number,
+                title: ep.name
+            }));
+
+            playVideo(`https://vidlink.pro/tv/${tvId}/${seasonNumber}/${ep.episode_number}`);
+            history.pushState({ type: "player" }, "");
+        });
+
+        vc.appendChild(btn);
+    });
+
+    vc.style.display = "block";
+    document.body.classList.add("video-playing");
+    history.pushState({ type: "view" }, "");
+}
+
+/* ===== INITIALIZE ===== */
+loadContinueWatching();
 </script>
 
 </body>
