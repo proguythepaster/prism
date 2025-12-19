@@ -158,7 +158,36 @@ body.video-playing {
 }
 
 #continue-card .card {
-    max-width: 300px;
+    max-width: 200px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+#continue-card img {
+    width: 100%;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+#continue-card .info {
+    padding: 6px 8px;
+    text-align: center;
+}
+
+#next-episode-btn {
+    position: absolute;
+    bottom: 28px;
+    right: 28px;
+    display: none;
+    z-index: 60;
+    padding: 10px 16px;
+    font-weight: 700;
+    border-radius: 999px;
+    cursor: pointer;
+    background: var(--accent);
+    color: #000;
 }
 </style>
 </head>
@@ -178,6 +207,7 @@ body.video-playing {
 </div>
 
 <div id="video-container"></div>
+<button id="next-episode-btn">Next Episode →</button>
 <div class="results" id="results"></div>
 
 <script>
@@ -201,26 +231,37 @@ function deleteCookie(name) {
 /* ===== CONTINUE WATCHING ===== */
 function loadContinueWatching() {
     const data = getCookie("continueWatching");
-    if (!data) return;
-
-    const episode = JSON.parse(data);
     const row = document.getElementById("continue-row");
     const card = document.getElementById("continue-card");
 
-    card.innerHTML = `
-        <div class="card">
-            <h3>Season ${episode.season} · Episode ${episode.episode}</h3>
-            <p>${episode.title}</p>
-            <button class="play-button">Continue</button>
-        </div>
-    `;
+    if (!data) {
+        row.style.display = "none";
+        card.innerHTML = "";
+        return;
+    }
 
-    card.querySelector("button").addEventListener("click", () => {
-        playVideo(`https://vidlink.pro/tv/${episode.tvId}/${episode.season}/${episode.episode}`);
-        history.pushState({ type: "player" }, "");
-    });
+    const episode = JSON.parse(data);
 
-    row.style.display = "block";
+    // Use OMDb to get poster
+    fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&i=${episode.imdbID || ""}&t=${episode.title}`)
+        .then(r => r.json())
+        .then(info => {
+            const poster = info.Poster && info.Poster !== "N/A" ? info.Poster : "";
+            card.innerHTML = `
+                <div class="card">
+                    <img src="${poster}" alt="${episode.title}">
+                    <div class="info">
+                        <h3>${episode.title}</h3>
+                        <p>Season ${episode.season} · Episode ${episode.episode}</p>
+                        <button class="play-button">Continue</button>
+                    </div>
+                </div>
+            `;
+            card.querySelector("button").addEventListener("click", () => {
+                playVideo(`https://vidlink.pro/tv/${episode.tvId}/${episode.season}/${episode.episode}`, episode);
+            });
+            row.style.display = "block";
+        });
 }
 
 /* ===== LOGO CLICK RESET ===== */
@@ -234,6 +275,8 @@ document.getElementById("logo").addEventListener("click", () => {
 
     document.body.classList.remove("video-playing");
     history.pushState({}, "");
+
+    loadContinueWatching();
 });
 
 /* ===== HISTORY / BACK BUTTON ===== */
@@ -300,13 +343,64 @@ async function search() {
 }
 
 /* ===== VIDEO PLAYBACK ===== */
-function playVideo(url) {
+let currentEpisode = null;
+
+function playVideo(url, episodeData = null) {
     const vc = document.getElementById("video-container");
     vc.innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
     vc.style.display = "block";
     document.body.classList.add("video-playing");
+
     history.pushState({ type: "player" }, "");
+
+    const nextBtn = document.getElementById("next-episode-btn");
+
+    if (episodeData) {
+        currentEpisode = episodeData;
+        nextBtn.style.display = "block";
+    } else {
+        currentEpisode = null;
+        nextBtn.style.display = "none";
+    }
 }
+
+/* ===== NEXT EPISODE BUTTON ===== */
+document.getElementById("next-episode-btn").addEventListener("click", async () => {
+    if (!currentEpisode) return;
+    const { tvId, season, episode } = currentEpisode;
+
+    const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${season}?api_key=${TMDB_API_KEY}`);
+    const data = await res.json();
+
+    let nextEpisodeNumber = episode + 1;
+    let nextSeason = season;
+
+    if (nextEpisodeNumber > data.episodes.length) {
+        const tvRes = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${TMDB_API_KEY}`);
+        const tvData = await tvRes.json();
+        const currentSeasonIndex = tvData.seasons.findIndex(s => s.season_number === season);
+        if (currentSeasonIndex + 1 < tvData.seasons.length) {
+            nextSeason = tvData.seasons[currentSeasonIndex + 1].season_number;
+            nextEpisodeNumber = 1;
+        } else {
+            alert("You've reached the end!");
+            return;
+        }
+    }
+
+    setCookie("continueWatching", JSON.stringify({
+        tvId,
+        season: nextSeason,
+        episode: nextEpisodeNumber,
+        title: `Episode ${nextEpisodeNumber}`
+    }));
+
+    playVideo(`https://vidlink.pro/tv/${tvId}/${nextSeason}/${nextEpisodeNumber}`, {
+        tvId,
+        season: nextSeason,
+        episode: nextEpisodeNumber
+    });
+});
 
 /* ===== SEASONS & EPISODES ===== */
 function showSeasons(tvId, seasons) {
@@ -340,16 +434,15 @@ async function showEpisodes(tvId, seasonNumber) {
         btn.textContent = `Episode ${ep.episode_number}: ${ep.name}`;
 
         btn.addEventListener("click", () => {
-            // Save progress
-            setCookie("continueWatching", JSON.stringify({
+            const episodeData = {
                 tvId,
                 season: seasonNumber,
                 episode: ep.episode_number,
                 title: ep.name
-            }));
+            };
 
-            playVideo(`https://vidlink.pro/tv/${tvId}/${seasonNumber}/${ep.episode_number}`);
-            history.pushState({ type: "player" }, "");
+            setCookie("continueWatching", JSON.stringify(episodeData));
+            playVideo(`https://vidlink.pro/tv/${tvId}/${seasonNumber}/${ep.episode_number}`, episodeData);
         });
 
         vc.appendChild(btn);
@@ -363,6 +456,5 @@ async function showEpisodes(tvId, seasonNumber) {
 /* ===== INITIALIZE ===== */
 loadContinueWatching();
 </script>
-
 </body>
 </html>
