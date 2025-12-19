@@ -242,11 +242,12 @@ function loadContinueWatching() {
 
     const episode = JSON.parse(data);
 
-    // Use OMDb to get poster
-    fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&i=${episode.imdbID || ""}&t=${episode.title}`)
-        .then(r => r.json())
+    // Fetch poster using series/movie title (OMDb)
+    fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&t=${encodeURIComponent(episode.title)}`)
+        .then(res => res.json())
         .then(info => {
             const poster = info.Poster && info.Poster !== "N/A" ? info.Poster : "";
+
             card.innerHTML = `
                 <div class="card">
                     <img src="${poster}" alt="${episode.title}">
@@ -257,12 +258,15 @@ function loadContinueWatching() {
                     </div>
                 </div>
             `;
+
             card.querySelector("button").addEventListener("click", () => {
                 playVideo(`https://vidlink.pro/tv/${episode.tvId}/${episode.season}/${episode.episode}`, episode);
             });
+
             row.style.display = "block";
         });
 }
+
 
 /* ===== LOGO CLICK RESET ===== */
 document.getElementById("logo").addEventListener("click", () => {
