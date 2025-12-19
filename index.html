@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>prism</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .search-box {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 300px;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px 0 0 4px;
+            border: none;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            background: #f5c518;
+            font-weight: bold;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .card img {
+            width: 100%;
+            border-radius: 4px;
+        }
+
+        .imdb-id {
+            color: #f5c518;
+            font-weight: bold;
+        }
+
+        a {
+            color: #f5c518;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<h1>prism <3</h1>
+
+<div class="search-box">
+    <input id="query" placeholder="Search movie or TV show..." />
+    <button onclick="search()">Search</button>
+</div>
+
+<div class="results" id="results"></div>
+
+<script>
+    const API_KEY = "65277ee3";
+
+    async function search() {
+        const q = document.getElementById("query").value.trim();
+        if (!q) return;
+
+        const res = await fetch(
+            `https://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(q)}`
+        );
+        const data = await res.json();
+
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = "";
+
+        if (data.Response === "False") {
+            resultsDiv.innerHTML = "<p>No results found.</p>";
+            return;
+        }
+
+       data.Search.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `
+        <img src="${item.Poster !== "N/A" ? item.Poster : ""}">
+        <h3>${item.Title} (${item.Type})</h3>
+        <button class="play-button">Play</button>
+    `;
+
+    // Now the button exists, we can safely add the click listener
+    card.querySelector(".play-button").addEventListener("click", () => {
+
+        if (item.Type == "series")
+        {
+            window.open("https://vidsrc-embed.ru/embed/tv/" + item.imdbID, "_blank");
+        }
+        else if (item.Type == "movie")
+        {
+            window.open("https://vidsrc-embed.ru/embed/movie/" + item.imdbID, "_blank");
+        }
+    });
+
+    resultsDiv.appendChild(card);
+});
+    }
+</script>
+
+</body>
+</html>
