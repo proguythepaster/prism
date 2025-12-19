@@ -3,114 +3,109 @@
 <head>
 <meta charset="UTF-8">
 <title>prism</title>
+
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #0f0f0f;
-        color: #fff;
-        margin: 0;
-        padding: 0;
-    }
+body {
+    margin: 0;
+    background: #0f0f0f;
+    color: white;
+    font-family: Arial, sans-serif;
+}
 
-    .top-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px;
-        background: #0f0f0f;
-        z-index: 10;
-        position: relative;
-    }
+.top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background: #0f0f0f;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 10;
+}
 
-    h1 {
-        margin: 0;
-        font-size: 28px;
-    }
+.top-bar h1 {
+    margin: 0;
+    cursor: pointer;
+}
 
-    .search-box {
-        display: flex;
-    }
+.search-box {
+    display: flex;
+}
 
-    input {
-        width: 300px;
-        padding: 10px;
-        font-size: 16px;
-        border-radius: 4px 0 0 4px;
-        border: none;
-    }
+input {
+    padding: 10px;
+    width: 300px;
+    border: none;
+}
 
-    button {
-        padding: 10px 15px;
-        font-size: 16px;
-        cursor: pointer;
-        border: none;
-        border-radius: 0 4px 4px 0;
-        background: #f5c518;
-        font-weight: bold;
-    }
+button {
+    background: #f5c518;
+    border: none;
+    padding: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
 
-    .results {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 15px;
-        padding: 20px;
-    }
+.results {
+    padding-top: 90px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 15px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
 
-    .card {
-        background: #1a1a1a;
-        padding: 10px;
-        border-radius: 6px;
-    }
+.card {
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 6px;
+}
 
-    .card img {
-        width: 100%;
-        border-radius: 4px;
-    }
+.card img {
+    width: 100%;
+    border-radius: 4px;
+}
 
-    .play-button {
-        background: #f5c518;
-        border: none;
-        padding: 8px 12px;
-        font-weight: bold;
-        cursor: pointer;
-        border-radius: 4px;
-        margin-top: 5px;
-    }
+.card button {
+    width: 100%;
+    margin-top: 5px;
+}
 
-    /* Fullscreen video container */
-    #video-container {
-        position: fixed;
-        top: 80px; /* height of top-bar */
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: #000;
-        display: none; /* hidden by default */
-        z-index: 5;
-    }
+.continue {
+    background: #2ecc71;
+}
 
-    #video-container iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
-    }
+/* Video player */
+#video-container {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: black;
+    display: none;
+    z-index: 5;
+    padding: 15px;
+    overflow-y: auto;
+}
 
-    /* Optional: hide scroll when video is open */
-    body.video-playing {
-        overflow: hidden;
-    }
-
-    h1#logo {
-        cursor: pointer;
-    }
+#video-container iframe {
+    width: 100%;
+    height: 80vh;
+    border: none;
+}
 </style>
 </head>
+
 <body>
 
 <div class="top-bar">
-    <h1 id="logo">prism &lt;3</h1>
+    <h1 id="home">prism &lt;3</h1>
     <div class="search-box">
-        <input id="query" placeholder="Search movie or TV show..." />
+        <input id="query" placeholder="Search movies or TV..." />
         <button onclick="search()">Search</button>
     </div>
 </div>
@@ -119,87 +114,137 @@
 <div class="results" id="results"></div>
 
 <script>
-const API_KEY = "65277ee3";
-const TMDB_API_KEY = "a7856adff8aa06bd9d9fa0b21d0ea593";
+const OMDB_KEY = "65277ee3";
+const TMDB_KEY = "a7856adff8aa06bd9d9fa0b21d0ea593";
 
-// Click logo to return to main / remove video
-document.getElementById("logo").addEventListener("click", () => {
-    const videoContainer = document.getElementById("video-container");
-    videoContainer.style.display = "none";
-    videoContainer.innerHTML = "";
-    document.body.classList.remove("video-playing");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-});
+/* ---------------- COOKIES ---------------- */
+function setCookie(name, value, days = 365) {
+    const d = new Date();
+    d.setTime(d.getTime() + (days*24*60*60*1000));
+    document.cookie = name + "=" + encodeURIComponent(JSON.stringify(value)) + ";expires=" + d.toUTCString() + ";path=/";
+}
 
+function getCookie(name) {
+    const cookies = document.cookie.split("; ");
+    for (let c of cookies) {
+        const [k, v] = c.split("=");
+        if (k === name) return JSON.parse(decodeURIComponent(v));
+    }
+    return null;
+}
+
+/* ---------------- UI ---------------- */
+document.getElementById("home").onclick = () => {
+    const vc = document.getElementById("video-container");
+    vc.style.display = "none";
+    vc.innerHTML = "";
+};
+
+/* ---------------- SEARCH ---------------- */
 async function search() {
     const q = document.getElementById("query").value.trim();
     if (!q) return;
 
-    const res = await fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(q)}`);
+    const res = await fetch(`https://www.omdbapi.com/?apikey=${OMDB_KEY}&s=${encodeURIComponent(q)}`);
     const data = await res.json();
 
-    const resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = "";
+    const results = document.getElementById("results");
+    results.innerHTML = "";
 
     if (data.Response === "False") {
-        resultsDiv.innerHTML = "<p style='padding:20px'>No results found.</p>";
+        results.innerHTML = "<p>No results found</p>";
         return;
     }
+
+    const progress = getCookie("tv_progress");
 
     data.Search.forEach(item => {
         const card = document.createElement("div");
         card.className = "card";
 
+        let continueBtn = "";
+        if (item.Type === "series" && progress && progress.title === item.Title) {
+            continueBtn = `<button class="continue">Continue S${progress.season}E${progress.episode}</button>`;
+        }
+
         card.innerHTML = `
             <img src="${item.Poster !== "N/A" ? item.Poster : ""}">
-            <h3>${item.Title} (${item.Type})</h3>
-            <button class="play-button">Play</button>
+            <h3>${item.Title}</h3>
+            <button class="play">Play</button>
+            ${continueBtn}
         `;
 
-        card.querySelector(".play-button").addEventListener("click", async () => {
-            let tmdbId;
-            let embedUrl;
+        card.querySelector(".play").onclick = () => handlePlay(item);
 
-            if (item.Type === "series") {
-                const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.Title)}`);
-                const tmdbData = await tmdbRes.json();
-                if (tmdbData.results && tmdbData.results.length > 0) {
-                    tmdbId = tmdbData.results[0].id;
-                    embedUrl = `https://vidlink.pro/tv/${tmdbId}/1/1`;
-                } else {
-                    alert("TMDb TV ID not found");
-                    return;
-                }
-            } else if (item.Type === "movie") {
-                const tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.Title)}`);
-                const tmdbData = await tmdbRes.json();
-                if (tmdbData.results && tmdbData.results.length > 0) {
-                    tmdbId = tmdbData.results[0].id;
-                    embedUrl = `https://vidlink.pro/movie/${tmdbId}`;
-                } else {
-                    alert("TMDb Movie ID not found");
-                    return;
-                }
-            }
+        if (continueBtn) {
+            card.querySelector(".continue").onclick = () => {
+                playVideo(`https://vidlink.pro/tv/${progress.tvId}/${progress.season}/${progress.episode}`);
+            };
+        }
 
-            // Show video in full-screen container
-            const videoContainer = document.getElementById("video-container");
-            videoContainer.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
-            videoContainer.style.display = "block";
-            document.body.classList.add("video-playing");
-        });
-
-        resultsDiv.appendChild(card);
+        results.appendChild(card);
     });
 }
 
-// Click outside video to close
-document.getElementById("video-container").addEventListener("click", () => {
-    const videoContainer = document.getElementById("video-container");
-    videoContainer.style.display = "none";
-    videoContainer.innerHTML = "";
-    document.body.classList.remove("video-playing");
-});
+/* ---------------- PLAY ---------------- */
+async function handlePlay(item) {
+    if (item.Type === "movie") {
+        const r = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${item.Title}`);
+        const d = await r.json();
+        if (d.results[0]) playVideo(`https://vidlink.pro/movie/${d.results[0].id}`);
+        return;
+    }
+
+    const r = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${item.Title}`);
+    const d = await r.json();
+    if (!d.results[0]) return;
+
+    const tvId = d.results[0].id;
+    const info = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${TMDB_KEY}`);
+    const show = await info.json();
+
+    const vc = document.getElementById("video-container");
+    vc.innerHTML = "<h2>Select Season</h2>";
+
+    show.seasons.forEach(s => {
+        if (s.season_number === 0) return;
+        const b = document.createElement("button");
+        b.textContent = `Season ${s.season_number}`;
+        b.onclick = () => showEpisodes(tvId, item.Title, s.season_number);
+        vc.appendChild(b);
+    });
+
+    vc.style.display = "block";
+}
+
+async function showEpisodes(tvId, title, season) {
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${season}?api_key=${TMDB_KEY}`);
+    const d = await r.json();
+
+    const vc = document.getElementById("video-container");
+    vc.innerHTML = `<h2>Season ${season}</h2>`;
+
+    d.episodes.forEach(ep => {
+        const b = document.createElement("button");
+        b.textContent = `Episode ${ep.episode_number}: ${ep.name}`;
+        b.onclick = () => {
+            setCookie("tv_progress", {
+                tvId,
+                title,
+                season,
+                episode: ep.episode_number
+            });
+            playVideo(`https://vidlink.pro/tv/${tvId}/${season}/${ep.episode_number}`);
+        };
+        vc.appendChild(b);
+    });
+}
+
+function playVideo(url) {
+    const vc = document.getElementById("video-container");
+    vc.innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
+    vc.style.display = "block";
+}
 </script>
 
 </body>
