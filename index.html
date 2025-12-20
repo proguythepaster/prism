@@ -242,17 +242,20 @@ function loadContinueWatching() {
 
     const episode = JSON.parse(data);
 
-    // Fetch poster using series/movie title (OMDb)
-    fetch(`https://www.omdbapi.com/?apikey=${API_KEY}&t=${encodeURIComponent(episode.title)}`)
+    // Fetch TV show details from TMDB to get show name and poster
+    fetch(`https://api.themoviedb.org/3/tv/${episode.tvId}?api_key=${TMDB_API_KEY}`)
         .then(res => res.json())
         .then(info => {
-            const poster = info.Poster && info.Poster !== "N/A" ? info.Poster : "";
+            const poster = info.poster_path 
+                ? `https://image.tmdb.org/t/p/w500${info.poster_path}` 
+                : "";
+            const showName = info.name || "Unknown Show";
 
             card.innerHTML = `
                 <div class="card">
-                    <img src="${poster}" alt="${episode.title}">
+                    <img src="${poster}" alt="${showName}">
                     <div class="info">
-                        <h3>${episode.title}</h3>
+                        <h3>${showName}</h3>
                         <p>Season ${episode.season} · Episode ${episode.episode}</p>
                         <button class="play-button">Continue</button>
                     </div>
