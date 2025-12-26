@@ -679,7 +679,9 @@ function displayContentGrid(items, containerId, type) {
     }
 
     items.forEach(item => {
-        const card = createContentCard(item, type);
+        // For mixed results, use the item's own type property
+        const itemType = type === 'mixed' ? item.type : type;
+        const card = createContentCard(item, itemType);
         container.appendChild(card);
     });
 }
